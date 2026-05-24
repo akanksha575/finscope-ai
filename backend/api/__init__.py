@@ -1,0 +1,6 @@
+"""
+FastAPI application package
+"""
+
+
+

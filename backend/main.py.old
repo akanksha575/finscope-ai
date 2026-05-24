@@ -1,0 +1,84 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+import os
+import asyncio
+
+from api.routes import health, classify, plan, research, report, ingest, retrieve, analytics
+
+# Create FastAPI app
+app = FastAPI(
+    title="FinScope AI API",
+    description="Financial Deep Research Agent API",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(health.router, prefix="/api", tags=["Health"])
+app.include_router(classify.router, prefix="/api", tags=["Classification"])
+app.include_router(plan.router, prefix="/api", tags=["Planning"])
+app.include_router(research.router, prefix="/api", tags=["Research"])
+app.include_router(report.router, prefix="/api/report", tags=["Reports"])
+app.include_router(ingest.router, prefix="/api", tags=["Ingestion"])
+app.include_router(retrieve.router, prefix="/api", tags=["RAG"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    from utils.logger import log
+    
+    log.info("FinScope AI API starting up...")
+    
+    # Initialize Redis cache connection
+    try:
+        from utils.cache import get_cache_manager
+        cache_manager = await get_cache_manager()
+        log.info("Redis cache connection initialized")
+    except Exception as e:
+        log.warning(f"Could not initialize Redis cache: {e}. Caching will be disabled.")
+    
+    # Check for pre-trained documents (non-blocking)
+    try:
+        from utils.pretrain_init import check_and_pretrain_documents
+        _pretrain_task = asyncio.create_task(check_and_pretrain_documents(auto_ingest=False))
+        log.info("Pre-training check scheduled (non-blocking)")
+    except Exception as e:
+        log.warning(f"Could not initialize pre-training check: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    from utils.logger import log
+    from utils.cache import _cache_manager
+    
+    log.info("FinScope AI API shutting down...")
+    
+    # Close Redis connection
+    if _cache_manager:
+        try:
+            await _cache_manager.disconnect()
+            log.info("Redis cache connection closed")
+        except Exception as e:
+            log.warning(f"Error closing Redis connection: {e}")
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "FinScope AI API",
+        "version": "1.0.0",
+        "status": "operational",
+        "timestamp": datetime.now().isoformat(),
+    }

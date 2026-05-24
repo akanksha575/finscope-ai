@@ -1,0 +1,130 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: finscope-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finscope-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: finscope-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finscope}
+      POSTGRES_USER: ${POSTGRES_USER:-finscope}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finscope123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finscope}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finscope-network
+    profiles:
+      - postgres
+
+  # Backend API Service
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: finscope-backend
+    environment:
+      # API Keys (Required)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      
+      # Optional API Keys
+      - JINA_AI_API_KEY=${JINA_AI_API_KEY:-}
+      
+      # Database Configuration
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///db.sqlite3}
+      - POSTGRES_DB=${POSTGRES_DB:-finscope}
+      - POSTGRES_USER=${POSTGRES_USER:-finscope}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-finscope123}
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      
+      # Django Settings
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-django-insecure-42b+58hxghco8q87l8)%u^w)*djcc5-&2$$r%2$$f&l_p-fb7535}
+      - DEBUG=${DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      
+      # CORS Settings
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:80,http://localhost:3000,http://localhost:5173}
+      
+      # ChromaDB Settings
+      - CHROMA_PERSIST_DIRECTORY=${CHROMA_PERSIST_DIRECTORY:-/app/data/chromadb}
+      
+      # Redis Configuration
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      # Persist data directories
+      - backend_data:/app/data
+      - backend_logs:/app/logs
+      - backend_outputs:/app/outputs
+      # Mount source code for development (comment out for production)
+      # - ../backend:/app
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - finscope-network
+    restart: unless-stopped
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: finscope-frontend
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-}
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - finscope-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_data:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_outputs:
+    driver: local
+
+networks:
+  finscope-network:
+    driver: bridge
