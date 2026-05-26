@@ -68,7 +68,7 @@ export default function Layout({
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   return (
-    <div className="flex h-screen bg-fs-black overflow-hidden relative">
+    <div className="flex h-screen bg-white overflow-hidden gap-4 p-4 relative">
       {/* Left Panel - History */}
       <LeftPanel
         history={history}

@@ -5,7 +5,7 @@ import QueryInput from '../Chat/QueryInput';
 import PlanSelector from '../Chat/PlanSelector';
 import ProgressBar from '../Chat/ProgressBar';
 import ReportViewer from '../Chat/ReportViewer';
-import logo from '../../assets/finscope.png';
+
 import type { ReportResponse } from '../../types/report';
 
 interface ConversationItem {
@@ -66,28 +66,12 @@ export default function MainPanel({
   onToggleRightPanel: _onToggleRightPanel,
 }: MainPanelProps) {
   return (
-    <div className="flex-1 flex flex-col bg-fs-dark overflow-hidden relative">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-fs-dark/95 backdrop-blur-sm border-b border-fs-border px-6 py-3">
-        <div className="flex items-center justify-center">
-          {/* Center - Logo and Title */}
-          <div className="flex items-center gap-3">
-            <img 
-              src={logo} 
-              alt="FinScope AI Logo" 
-              className="w-12 h-12"
-            />
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-display font-semibold bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">FinScope</h1>
-              <span className="text-3xl font-semibold text-zinc-500">AI</span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="flex-1 h-full flex flex-col bg-white overflow-hidden relative">
+
       
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto pb-32 pt-16">
-        <div className={`w-full mx-auto px-4 py-8 space-y-8 ${leftPanelCollapsed && rightPanelCollapsed ? 'max-w-7xl' : leftPanelCollapsed || rightPanelCollapsed ? 'max-w-6xl' : 'max-w-5xl'}`}>
+      <div className="flex-1 overflow-y-auto pb-32 pt-0 flex flex-col">
+        <div className={`w-full mx-auto px-4 py-8 flex-1 flex flex-col ${leftPanelCollapsed && rightPanelCollapsed ? 'max-w-7xl' : leftPanelCollapsed || rightPanelCollapsed ? 'max-w-6xl' : 'max-w-5xl'}`}>
           {/* Display ONLY the current conversation - filter by currentConversationId */}
           {(() => {
             // Filter to show only the current conversation
@@ -101,14 +85,7 @@ export default function MainPanel({
               const isActive = item.id === currentConversationId;
               
               return (
-                <div key={item.id} className="space-y-4 border-b border-fs-border pb-8 last:border-b-0">
-                  {/* Query */}
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-zinc-500">Query</div>
-                    <div className="text-base text-fs-text bg-fs-card rounded-xl p-4 border border-fs-border shadow-card">
-                      {isActive && currentQuery ? currentQuery : item.query}
-                    </div>
-                  </div>
+                <div key={item.id} className="space-y-4 pb-8">
 
                   {/* Plan Selection - use current plan if active, otherwise use item plan */}
                   {(isActive ? plan : item.plan) && (isActive ? !isResearching : item.status !== 'researching') && (
@@ -147,13 +124,7 @@ export default function MainPanel({
           {/* Current active query/plan (if not yet in history OR if report exists but not in history) */}
           {/* Only show if there's no current conversation in history yet */}
           {currentConversationId && !conversationHistory.some(item => item.id === currentConversationId) && (
-            <div className="space-y-4 border-b border-fs-border pb-8">
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-zinc-500">Current Query</div>
-                <div className="text-base text-fs-text bg-fs-card rounded-xl p-4 border border-fs-border shadow-card">
-                  {currentQuery || selectedReport?.query}
-                </div>
-              </div>
+            <div className="space-y-4 pb-8">
 
               {/* Plan Selection */}
               {plan && !isResearching && (
@@ -187,13 +158,7 @@ export default function MainPanel({
           
           {/* Fallback: Show current state if no conversation ID yet (shouldn't happen, but safety check) */}
           {!currentConversationId && (currentQuery || plan || isResearching || selectedReport) && (
-            <div className="space-y-4 border-b border-fs-border pb-8">
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-zinc-500">Current Query</div>
-                <div className="text-base text-fs-text bg-fs-card rounded-xl p-4 border border-fs-border shadow-card">
-                  {currentQuery || selectedReport?.query}
-                </div>
-              </div>
+            <div className="space-y-4 pb-8">
 
               {/* Plan Selection */}
               {plan && !isResearching && (
@@ -227,13 +192,13 @@ export default function MainPanel({
 
           {/* Welcome screen - show when there's no active query/research, regardless of history */}
           {!currentQuery && !plan && !isResearching && !selectedReport && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-8 max-w-2xl px-6">
-                <div className="space-y-4">
-                  <h1 className="text-4xl font-semibold text-fs-highlight">
+            <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
+              <div className="text-center space-y-6 max-w-2xl px-6 mt-[-10vh]">
+                <div className="space-y-3">
+                  <h1 className="text-4xl font-semibold text-zinc-900 tracking-tight">
                     What would you like to research?
                   </h1>
-                  <p className="text-lg text-zinc-400">
+                  <p className="text-lg text-black">
                     Get comprehensive financial insights powered by AI
                   </p>
                 </div>

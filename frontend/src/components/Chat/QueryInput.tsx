@@ -3,6 +3,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, Mic, MicOff, Paperclip } from 'lucide-react';
+import { StopButton } from '../../components/StopButton';
 import { classifyQuery } from '../../services/api';
 import type { Sector } from '../../types/research';
 
@@ -44,6 +45,10 @@ declare global {
 }
 
 export default function QueryInput({ onQuerySubmit, onFileAttach, disabled = false, hasPlan = false, onStartResearch }: QueryInputProps) {
+
+  // Abort controller for ongoing classification request
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Component state
   const [query, setQuery] = useState('');
   const [isClassifying, setIsClassifying] = useState(false);
   const [sector, setSector] = useState<Sector | null>(null);
@@ -179,9 +184,13 @@ export default function QueryInput({ onQuerySubmit, onFileAttach, disabled = fal
     }
 
     setIsClassifying(true);
-    
+
+    // Create a fresh AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
-      const classification = await classifyQuery({ query });
+      const classification = await classifyQuery({ query, signal: abortController.signal });
       const detectedSector = classification.sector || 'Unknown';
       setSector(detectedSector);
       onQuerySubmit(query, detectedSector);
@@ -189,14 +198,19 @@ export default function QueryInput({ onQuerySubmit, onFileAttach, disabled = fal
       lastProcessedIndexRef.current = 0;
       finalTranscriptRef.current = '';
     } catch (error) {
-      console.error('Error classifying query:', error);
-      setSector('Unknown');
-      onQuerySubmit(query, 'Unknown');
+      if ((error as any).name === 'AbortError') {
+        console.log('Classification aborted by user');
+      } else {
+        console.error('Error classifying query:', error);
+        setSector('Unknown');
+        onQuerySubmit(query, 'Unknown');
+      }
       setQuery('');
       lastProcessedIndexRef.current = 0;
       finalTranscriptRef.current = '';
     } finally {
       setIsClassifying(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -222,7 +236,31 @@ export default function QueryInput({ onQuerySubmit, onFileAttach, disabled = fal
                   target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
                 }
               }}
-              className={`w-full pl-4 pr-28 py-3.5 bg-fs-card border rounded-2xl text-base text-fs-text resize-none focus:outline-none focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500 disabled:bg-fs-panel disabled:cursor-not-allowed placeholder:text-zinc-500 overflow-hidden ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  // Ctrl+Enter or Cmd+Enter -> insert a newline at cursor position
+                  if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    const textarea = textareaRef.current;
+                    if (textarea) {
+                      const { selectionStart, selectionEnd } = textarea;
+                      const newValue = query.slice(0, selectionStart) + '\n' + query.slice(selectionEnd);
+                      setQuery(newValue);
+                      // Move cursor after the inserted newline
+                      setTimeout(() => {
+                        textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+                      }, 0);
+                    }
+                    return;
+                  }
+                  // Normal Enter (without Shift/Ctrl/Meta) -> submit form
+                  if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    handleSubmit(e as any);
+                  }
+                }
+              }}
+              className={`w-full pl-4 pr-28 py-3.5 bg-fs-card border rounded-2xl text-base text-white resize-none focus:outline-none focus:ring-1 focus:ring-zinc-500 focus:border-zinc-500 disabled:bg-fs-panel disabled:cursor-not-allowed placeholder:text-zinc-400 overflow-hidden ${
                 isListening ? 'border-zinc-400 ring-1 ring-zinc-400' : 'border-fs-border'
               }`}
               style={{ maxHeight: '200px', minHeight: '52px', height: query.trim() ? 'auto' : '52px' }}
@@ -264,17 +302,18 @@ export default function QueryInput({ onQuerySubmit, onFileAttach, disabled = fal
             </div>
           </div>
           <button
-            type="submit"
-            disabled={!query.trim() || disabled || isClassifying}
-            className="p-3 bg-zinc-200 text-zinc-900 rounded-2xl hover:bg-white disabled:bg-fs-elevated disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0 shadow-glow"
-            title="Send message"
-          >
-            {isClassifying ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </button>
+  type="submit"
+  disabled={!query.trim() || disabled || isClassifying}
+  className="p-3 bg-red-600 text-white rounded-2xl hover:bg-red-700 disabled:bg-fs-elevated disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0 shadow-glow"
+  title="Send message"
+>
+  {isClassifying ? (
+    <Loader2 className="w-5 h-5 animate-spin" />
+  ) : (
+    <Send className="w-5 h-5" />
+  )}
+</button>
+{isClassifying && <StopButton onClick={() => abortControllerRef.current?.abort()} className="ml-2" title="Stop" />}
         </div>
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2">
@@ -295,14 +334,14 @@ export default function QueryInput({ onQuerySubmit, onFileAttach, disabled = fal
           </div>
           <div className="flex items-center gap-4">
             {isListening && (
-              <p className="text-xs text-zinc-400 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-pulse"></span>
+              <p className="text-xs text-white flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                 Listening...
               </p>
             )}
             {sector && !isListening && (
-              <p className="text-xs text-zinc-500">
-                Sector: <span className="font-medium text-zinc-300">{sector}</span>
+              <p className="text-xs text-zinc-400">
+                Sector: <span className="font-bold text-white">{sector}</span>
               </p>
             )}
           </div>

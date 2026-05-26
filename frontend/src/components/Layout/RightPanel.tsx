@@ -24,22 +24,22 @@ export default function RightPanel({
   collapsed = false,
   onToggleCollapse,
 }: RightPanelProps) {
-  if (collapsed) {
-    return (
-      <div className="w-12 bg-fs-panel flex flex-col border-l border-fs-border">
-        <button
-          onClick={onToggleCollapse}
-          className="p-3 hover:bg-fs-elevated transition-colors"
-          title="Expand sidebar"
-        >
-          <Menu className="w-5 h-5 text-fs-muted" />
-        </button>
-      </div>
-    );
-  }
+    if (collapsed) {
+      return (
+        <div className="w-12 h-full bg-fs-panel flex flex-col border border-fs-border rounded-xl shadow-card flex-shrink-0 overflow-hidden">
+          <button
+            onClick={onToggleCollapse}
+            className="p-3 hover:bg-fs-elevated transition-colors"
+            title="Expand sidebar"
+          >
+            <Menu className="w-5 h-5 text-fs-muted" />
+          </button>
+        </div>
+      );
+    }
 
   return (
-    <div className="w-80 bg-fs-panel border-l border-fs-border flex flex-col relative">
+    <div className="w-80 h-full bg-fs-panel border border-fs-border flex flex-col relative rounded-xl shadow-card flex-shrink-0 overflow-hidden">
       {/* Tab Header */}
       <div className="flex items-center border-b border-fs-border bg-fs-card relative">
         <button

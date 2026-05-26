@@ -55,7 +55,7 @@ function App() {
   // localStorage is managed directly in useResearch hook
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-fs-black">
+    <div className="h-screen w-screen overflow-hidden bg-white">
       <Layout
         history={history}
         onHistorySelect={(report) => handleSelectReport(report.query_id)}

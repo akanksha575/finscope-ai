@@ -29,9 +29,10 @@ const api = axios.create({
 /**
  * Classify a query to determine sector
  */
-export const classifyQuery = async (request: ClassifyRequest): Promise<ClassifyResponse> => {
+export const classifyQuery = async (request: ClassifyRequest & { signal?: AbortSignal }): Promise<ClassifyResponse> => {
   try {
-    const response = await api.post<ClassifyResponse>('/api/classify', request);
+    const { signal, ...data } = request;
+    const response = await api.post<ClassifyResponse>('/api/classify', data, { signal });
     console.log('Classification response:', response.data);
     
     // Ensure sector is valid
